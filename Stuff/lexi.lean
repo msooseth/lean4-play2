@@ -1,15 +1,13 @@
 import Mathlib
 
 inductive Expr : Type where
-  | Val : Int -> Expr
-  | Add : Expr -> Expr -> Expr
+| Val : Int -> Expr
+| Add : Expr -> Expr -> Expr
+deriving Repr, DecidableEq
 
--- need: eval
-
-/- def eval : Expr -> Int -/
-/- | .Val a => sorry -/   
-/- | _ => sorry -/
 open Expr
+
+namespace denotational
 
 @[simp]
 def eval (e : Expr) : Int := match e with
@@ -37,3 +35,33 @@ theorem eval_total : ∀ x : Expr, ∃ v : Int, eval x = v := by
           rw [ihvy]
         exact Exists.intro (vx + vy) h
 
+end denotational
+
+namespace smallstep
+
+-- apply a single step
+def trans (e : Expr) : List Expr := match e with
+| .Val _ => []
+| .Add (Val a) (Val b) => [Val (a + b)]
+| .Add a b => (trans a).map (λ a' => Add a' b) ++ (trans b).map (λ b' => Add a b')
+
+inductive Tree where
+| Node : Expr → List Tree → Tree
+
+def nAdds : (e : Expr) → Nat 
+| .Val _ => 0
+| .Add a b => 1 + nAdds a + nAdds b
+
+def exec (e : Expr) : Tree := match e with
+| .Val a => .Node e []
+| .Add l r => 
+  have term (a : Expr) (b : Expr) : nAdds a < nAdds (Add a b) := by sorry 
+  .Node e [exec l, exec r]
+termination_by (nAdds e)
+      
+
+#eval trans (.Add (.Add (.Val 3) (.Val 2)) (.Add (.Val 4) (.Val 5)))
+
+theorem confluent (e : Expr) (i j : Nat) (hi: i < (trans e).length) (hj : j < (trans e).length) : (trans e)[i] = (trans e)[j] := sorry
+
+end smallstep
